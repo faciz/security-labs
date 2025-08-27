@@ -14,7 +14,7 @@
 
     >[!TIP]
     **-sS:** Performs a TCP SYN scan (stealth scan). This sends SYN packets to detect open ports without completing the full TCP handshake, making it faster and less likely to be logged.  
-    >    
+    >
     > **-Pn:** Skip host discovery (ping). This treats the target as online and skips the initial ping test, which is useful when ICMP is blocked by firewalls.
 
 2. **Attempt SSH**:  
@@ -82,6 +82,7 @@ You’ll likely see an internal IP in the 10.0.0.x range (common for Azure VNets
 Scan all devices in the 10.0.0.x range to identify active hosts. Use one of the methods below to send bulk ICMP echo probes (pings).
 
 **Method 1: Using nmap:**
+
 ```bash
 nmap -sn 10.0.0.0/24
 ```
@@ -90,6 +91,7 @@ nmap -sn 10.0.0.0/24
 **-sn:** Performs a ping scan (no port scan). This option tells nmap to only discover hosts that are up, without scanning for open ports.
 
 **Method 2: Using fping:**
+
 ```bash
 fping -g 10.0.0.1 10.0.0.254
 ```
@@ -98,6 +100,7 @@ fping -g 10.0.0.1 10.0.0.254
 **-g** : Generates a list of IPs in the specified range and pings them.
 
 **Method 3: Use a simple bash loop:**
+
 ```bash
 echo "Scanning network..."
 for i in {1..254}; do
@@ -154,12 +157,14 @@ You're in! Time to explore this second VM:
 ### 6.1: Basic System Information
 
 Check current user and privileges
+
 ```bash
 whoami
 id
 ```
 
 Check system information
+
 ```bash
 uname -a
 cat /etc/os-release
@@ -167,7 +172,7 @@ cat /etc/os-release
 
 ### 6.2: Look for Sensitive Files
 
-You might find some interesting files in the home directory or other locations. Spend a few minutes exploring the file system to see if you can find any sensitive files or directories that might contain the secret! 
+You might find some interesting files in the home directory or other locations. Spend a few minutes exploring the file system to see if you can find any sensitive files or directories that might contain the secret!
 
 Here are some helpful commands for exploring:
 
@@ -187,7 +192,7 @@ tree
 
 ### 6.3: Find Hidden Files
 
-The regular `ls` and `tree` commands might not show everything. 
+The regular `ls` and `tree` commands might not show everything.
 
 Try:
 
@@ -209,6 +214,7 @@ Now you should see some hidden files scattered around! Keep exploring with `ls`,
 Try to `cat` the file you think contains the secret. You will be faced with a "Permission denied" error, indicating that the file is protected and you don't have permission to read it as the current user.
 
 ## Step 7: Privilege Escalation
+
 ### 7.1: Check for Privilege Escalation Opportunities
 
 You might be able to escalate your privileges using `sudo`. First, check if you have any sudo privileges:
@@ -235,8 +241,9 @@ This means that you can run `vim` as root without needing to enter a password. T
 ### 7.2: Use Vim for Privilege Escalation
 
 There are two main ways to use `vim` for privilege escalation:
-1. **Read the file directly**: 
-    
+
+1. **Read the file directly**:
+
     This way is simple and straightforward. You can open the secret file with `vim` and read its contents.
 
     ```bash
@@ -244,7 +251,7 @@ There are two main ways to use `vim` for privilege escalation:
     ```
 
 1. **Escape to a root shell**:
-    
+
     This way is a bit more involved but much more **powerful**. You can use `vim` to get a root shell and then read the file.
 
     ```bash
@@ -260,12 +267,12 @@ There are two main ways to use `vim` for privilege escalation:
     This will give you a root shell where you will have full access to the system and can read any file, including the secret one!
 
 ## Step 8: You did it! 🎉
-Congratulations! 
 
-You have successfully compromised the VM, navigated the network, and escalated your privileges to read the secret file. Take a moment to reflect on what you learned about common security misconfigurations and how they can be exploited. 
+Congratulations!
+
+You have successfully compromised the VM, navigated the network, and escalated your privileges to read the secret file. Take a moment to reflect on what you learned about common security misconfigurations and how they can be exploited.
 
 Optionally, you can now try to secure the VM by applying any remediation steps below.
-
 
 ## Remediation
 
