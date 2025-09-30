@@ -23,13 +23,16 @@ Before starting these labs, please ensure you have the following:
 - **Azure Subscription**: These labs will create resources in your Azure subscription. Make sure you have an active Azure subscription with appropriate permissions to create and manage resources.
 
 - **Azure CLI Authentication**: You'll need to authenticate with Azure using the following commands:
+
   ```bash
   az login
   ```
+
   If not prompted to select a subscription, you may need to set the desired subscription using:
+
   ```bash
     az account set --subscription <subscription-id>
-    ```
+  ```
 
 - **Script Dependencies**: Install the required tools for lab setup scripts:
   - **coreutils**:
@@ -49,7 +52,7 @@ You are Mr.Ton, first name Plank, and you aspire to create a popular fast food r
 
 ## Setup Lab
 
-You should first go through the `Lab 01` section in the presentation. After doing so, run the `lab01_setup.sh` script. 
+You should first go through the `Lab 01` section in the presentation. After doing so, run the `lab01_setup.sh` script.
 
 >[!IMPORTANT]
 The setup script is encoded to retain the challenge of the lab. You should not see how the resources are created.
@@ -63,14 +66,14 @@ cd Lab_01_Compromised_VM
 ./lab01_setup.sh
 ```
 
-## Completing the Lab:
+## Completing the Lab
 
 ### Option 1: Hard Mode (Recommended)
 
 Go find the secret. Hopefully the powerpoint taught you something. Good luck.
 
-### Option 2: Guided Mode 
+### Option 2: Guided Mode
 
 It is recommended to try the hard mode first, but if you get stuck, you can use the guide to help you through the steps.
 
-The full step-by-step guide is available [here](./Lab_01_Compromised_VM/guided_mode.md). 
+The full step-by-step guide is available [here](./Lab_01_Compromised_VM/guided_mode.md).
