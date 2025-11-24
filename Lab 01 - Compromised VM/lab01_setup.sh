@@ -12,7 +12,13 @@ if [ -f "$SOURCE_SCRIPT" ] && [ -x "$SOURCE_SCRIPT" ]; then
     "$SOURCE_SCRIPT"
 elif [ -f "$ENCODED_SCRIPT" ]; then
     TEMP_SCRIPT=$(mktemp)
-    base64 -d "$ENCODED_SCRIPT" > "$TEMP_SCRIPT"
+    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        base64 -D -i "$ENCODED_SCRIPT" -o "$TEMP_SCRIPT"
+    else
+        base64 -d "$ENCODED_SCRIPT" > "$TEMP_SCRIPT"
+    fi
+
     chmod +x "$TEMP_SCRIPT"
     "$TEMP_SCRIPT"
     rm -f "$TEMP_SCRIPT"
