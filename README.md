@@ -1,6 +1,6 @@
 # Overview
 
-"Are You Secure?" is a series of hands-on labs designed to provide you with insight into how an attacker could exploit improperly secured environments. 
+"Be The Hacker" is a series of hands-on labs designed to provide you with insight into how an attacker could exploit improperly secured environments.
 
 Through a series of scenarios, this lab series aims to teach the common mistakes made during cloud resource setup and software configuration, and demonstrate how they can be exploited by a bad actor.
 
@@ -18,7 +18,7 @@ Refer back to the presentation as needed while completing the labs.
 
 Before starting these labs, please ensure you have the following:
 
-- **Linux/Unix Environment**: These labs are designed to run on Linux, macOS, or Windows Subsystem for Linux (WSL). The setup scripts and labs use bash and Unix tools.
+- **Linux/Unix Environment**: These labs are designed to run on Linux, macOS, or Windows Subsystem for Linux (WSL). The setup scripts and labs use bash and Unix tools. Alternatively, a Dockerfile (Ubuntu image) is provided if you prefer to run the labs in a containerized environment.
 
 - **Azure Subscription**: These labs will create resources in your Azure subscription. Make sure you have an active Azure subscription with appropriate permissions to create and manage resources.
 
