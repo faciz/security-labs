@@ -1,7 +1,9 @@
 > [!WARNING]
-> **ETHICAL USE ONLY**: This lab is for educational purposes in a controlled environment. These techniques should NEVER be used against systems you don't own or don't have explicit permission to test. Unauthorized access to computer systems is illegal and unethical.
+> **ETHICAL USE ONLY**  
+> This lab is for educational purposes in a controlled environment. These techniques should NEVER be used against systems you don't own or don't have explicit permission to test. Unauthorized access to computer systems is illegal and unethical.
 >
-> **USE PERSONAL ACCOUNTS ONLY**: All lab resources must be deployed exclusively on personal Azure subscriptions and test accounts. Never use company or production resources to avoid:
+> **USE PERSONAL ACCOUNTS ONLY**  
+> All lab resources must be deployed exclusively on personal Azure subscriptions and test accounts. Never use company or production resources to avoid:
 > - Violating organizational security policies and acceptable use agreements
 > - Creating potential attack vectors or unauthorized access points
 > - Exposing corporate infrastructure to vulnerabilities
