@@ -18,7 +18,16 @@ Refer back to the presentation as needed while completing the labs.
 
 Before starting these labs, please ensure you have the following:
 
-- **Linux/Unix Environment**: These labs are designed to run on Linux, macOS, or Windows Subsystem for Linux (WSL). The setup scripts and labs use bash and Unix tools. Alternatively, a Dockerfile (Ubuntu image) is provided if you prefer to run the labs in a containerized environment.
+- **Linux/Unix Environment**: These labs are designed to run on Linux, macOS, or Windows Subsystem for Linux (WSL). The setup scripts and labs use bash and Unix tools.
+
+  - **(Alternative) Docker Environment**: Alternatively, a Dockerfile (Ubuntu image) is provided if you prefer to run the labs in a containerized environment. Ensure you have Docker installed on your machine. You can build the provided Dockerfile to create a containerized environment with all necessary tools pre-installed.
+  - You can build the Docker image and run a container using the following commands:
+
+     ```bash
+      docker build -t sec-lab .
+
+      docker run -it --rm sec-lab
+    ```
 
 - **Azure Subscription**: These labs will create resources in your Azure subscription. Make sure you have an active Azure subscription with appropriate permissions to create and manage resources.
 
