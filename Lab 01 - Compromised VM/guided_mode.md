@@ -1,7 +1,6 @@
 # Lab 01: Compromised VM
 
-> [!WARNING]
-> **ETHICAL USE ONLY**: This lab is for educational purposes in a controlled environment. These techniques should NEVER be used against systems you don't own or don't have explicit permission to test. Unauthorized access to computer systems is illegal and unethical.
+Try to do the lab on your own first before looking at the guide. If you get stuck, the guided mode below will help you through the steps. Try to continue on your own after getting unstuck.
 
 ## Step 1: Connecting to the VM
 
