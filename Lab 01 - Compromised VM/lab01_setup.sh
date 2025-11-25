@@ -6,8 +6,8 @@ SCRIPT_DIR="$(dirname "$0")"
 SOURCE_SCRIPT="$SCRIPT_DIR/.util/lab01_setup_source.sh"
 ENCODED_SCRIPT="$SCRIPT_DIR/.util/lab01_setup_encoded.txt"
 
-# Check if the decoded source script exists and is executable
-if [ -f "$SOURCE_SCRIPT" ] && [ -x "$SOURCE_SCRIPT" ]; then
+# Check if the decoded source script exists
+if [ -f "$SOURCE_SCRIPT" ]; then
     chmod +x "$SOURCE_SCRIPT"
     "$SOURCE_SCRIPT"
 elif [ -f "$ENCODED_SCRIPT" ]; then

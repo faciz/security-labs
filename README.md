@@ -61,10 +61,6 @@ Before starting these labs, please ensure you have the following:
     - Ubuntu/Debian: `sudo apt-get install coreutils`
     - CentOS/RHEL: `sudo yum install coreutils`
     - macOS: `brew install coreutils`
-  - **sshpass**:
-    - Ubuntu/Debian: `sudo apt-get install sshpass`
-    - CentOS/RHEL: `sudo yum install sshpass`
-    - macOS: `brew install hudochenkov/sshpass/sshpass`
 
 # Lab 01: Compromised VM
 

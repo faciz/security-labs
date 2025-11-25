@@ -5,13 +5,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     coreutils \
-    sshpass \
-    nmap \
-    hydra \
-    medusa \
     ssh \
     sudo \
-    curl
+    curl \
+    nmap \
+    medusa \
+    hydra
 
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 

@@ -38,19 +38,19 @@ Try to do the lab on your own first before looking at the guide. If you get stuc
    - Since the machine is hosted on Azure, try using `azureuser` as the username. This is the standard username used in the official [docs](https://learn.microsoft.com/en-us/azure/virtual-machines/linux-vm-connect?tabs=Linux).
 
 2. **Brute Force the Password**:  
-   Tools like `hydra`, `ncrack`, and `medusa` can be used for brute-forcing logins. Use `hydra` or `medusa` to perform the attack. You will need to provide a username and a list of passwords to try against. Try the 200 most [common passwords](./common_passwords.txt) of 2023.
+   Tools like `medusa`, `hydra`, `ncrack` can be used for brute-forcing logins. Use  `medusa` or `hydra` to perform the attack. You will need to provide a username and a list of passwords to try against. Try the 200 most [common passwords](./common_passwords.txt) of 2023.
 
    >[!NOTE]
    This is actually a modified version of the 200 most common passwords of 2023 from [SecLists](https://github.com/danielmiessler/SecLists/blob/master/Passwords/2023-200_most_used_passwords.txt), since most of the passwords in the original file do not meet the password complexity requirements of Azure VMs.
 
-   ```bash
-   hydra -l azureuser -P ./common_passwords.txt ssh://<Public_IP>:2222
-   ```
+    ```bash
+    medusa -h 172.173.113.22 -u azureuser -P ./common_passwords.txt -M ssh -n 2222 -t 2
+    ```
 
    or
 
     ```bash
-    medusa -h 172.173.113.22 -u azureuser -P ./common_passwords.txt -M ssh -n 2222 -t 2
+    hydra -l azureuser -P ./common_passwords.txt ssh://<Public_IP>:2222
     ```
 
 ## Step 3: Access the VM
