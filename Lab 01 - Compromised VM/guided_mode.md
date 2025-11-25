@@ -93,7 +93,7 @@ nmap -sn 10.0.0.0/24
 **Method 2: Using fping:**
 
 ```bash
-fping -g 10.0.0.0 10.0.0.255
+fping -g 10.0.0.1 10.0.0.254
 ```
 
 >[!TIP]
