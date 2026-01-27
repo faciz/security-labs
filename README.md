@@ -78,6 +78,8 @@ The setup script is encoded to retain the challenge of the lab. You should not s
 >Do not look at the resources created in the Azure portal until **AFTER** you have completed the lab, as it may spoil the challenge.
 >
 >If you are curious, you may decode/read the setup script **AFTER** completing the lab.
+>
+>**Do not read `threat_model.md` until after completing the lab** - it contains detailed explanations of all vulnerabilities and the complete attack path, which will spoil the challenge.
 
 ```bash
 cd Lab_01_Compromised_VM
