@@ -96,4 +96,4 @@ Go find the secret. Hopefully the powerpoint taught you something. Good luck.
 
 It is recommended to try the hard mode first, but if you get stuck, you can use the guide to help you through the steps.
 
-The full step-by-step guide is available [here](./Lab_01_Compromised_VM/guided_mode.md).
+The full step-by-step guide is available [here](./Lab%2001%20-%20Compromised%20VM/guided_mode.md).
