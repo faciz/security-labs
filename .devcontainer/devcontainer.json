@@ -1,0 +1,18 @@
+{
+  "build": {
+    "dockerfile": "../Lab 01 - Compromised VM/Dockerfile",
+    "context": "../Lab 01 - Compromised VM/"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // add extensions
+      ]
+    }
+  },
+
+  "forwardPorts": [3000],
+
+  "postStartCommand": "cd 'Lab 01 - Compromised VM'"
+}
