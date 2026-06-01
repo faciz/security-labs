@@ -12,7 +12,5 @@
     }
   },
 
-  "forwardPorts": [3000],
-
-  "postStartCommand": "cd 'Lab 01 - Compromised VM'"
+  "forwardPorts": [3000]
 }
