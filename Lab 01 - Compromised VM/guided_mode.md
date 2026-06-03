@@ -41,7 +41,7 @@ Try to do the lab on your own first before looking at the guide. If you get stuc
    Tools like `medusa`, `hydra`, `ncrack` can be used for brute-forcing logins. Use  `medusa` or `hydra` to perform the attack. You will need to provide a username and a list of passwords to try against. Try the 200 most [common passwords](./common_passwords.txt) of 2023.
 
    >[!NOTE]
-   This is actually a modified version of the 200 most common passwords of 2023 from [SecLists](https://github.com/danielmiessler/SecLists/blob/master/Passwords/2023-200_most_used_passwords.txt), since most of the passwords in the original file do not meet the password complexity requirements of Azure VMs.
+   This is actually a modified version of the 200 most common passwords of 2023 from [SecLists](https://github.com/danielmiessler/SecLists), since most of the passwords in the original file do not meet the password complexity requirements of Azure VMs.
 
     ```bash
     medusa -h 172.173.113.22 -u azureuser -P ./common_passwords.txt -M ssh -n 2222 -t 2
