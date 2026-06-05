@@ -44,7 +44,7 @@ Try to do the lab on your own first before looking at the guide. If you get stuc
    This is actually a modified version of the 200 most common passwords of 2023 from [SecLists](https://github.com/danielmiessler/SecLists), since most of the passwords in the original file do not meet the password complexity requirements of Azure VMs.
 
     ```bash
-    medusa -h 172.173.113.22 -u azureuser -P ./common_passwords.txt -M ssh -n 2222 -t 2
+    medusa -h <Public_IP> -u azureuser -P ./common_passwords.txt -M ssh -n 2222 -t 2
     ```
 
    or

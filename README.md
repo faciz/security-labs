@@ -47,7 +47,7 @@ Run the labs directly in your browser — no local setup required. From the repo
 
 ### Option 2: Docker
 
-Run the labs in a local container using the provided Dockerfile (Ubuntu image) with all necessary tools pre-installed. Requires [Docker](https://docs.docker.com/get-docker/) installed on your machine. Choose **either** of the approaches below.
+Run the labs in a local container using the provided Dockerfile (Ubuntu image) with all necessary tools pre-installed. Requires [Docker](https://docs.docker.com/get-started/get-docker/) installed on your machine. Choose **either** of the approaches below.
 
 **Build and run manually.** From the repository root, build the image and start a container:
 

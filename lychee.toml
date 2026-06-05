@@ -1,0 +1,28 @@
+# Configuration for the lychee link checker.
+# Docs: https://github.com/lycheeverse/lychee
+
+# Treat these HTTP status codes as success (rate limiting, auth-gated, etc.).
+accept = [200, 206, 429]
+
+# Retry transient failures before giving up.
+max_retries = 3
+retry_wait_time = 2
+
+# Be polite / avoid false positives from bot-blocking sites.
+user_agent = "Mozilla/5.0 (compatible; lychee link checker)"
+timeout = 30
+
+# Exclude links that require authentication or are otherwise not publicly
+# reachable from CI, plus private/lab-internal hosts.
+exclude = [
+  # Auth-gated Microsoft SharePoint / Office content
+  "^https://microsoft-my\\.sharepoint\\.com",
+  # Private RFC 1918 / lab IP ranges
+  "^https?://10\\.",
+  "^https?://192\\.168\\.",
+  "^https?://127\\.",
+  "^https?://localhost",
+]
+
+# Don't fail on mailto links.
+include_mail = false
