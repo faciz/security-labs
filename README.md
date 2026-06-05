@@ -47,13 +47,17 @@ Run the labs directly in your browser — no local setup required. From the repo
 
 ### Option 2: Docker
 
-Run the labs in a local container using the provided Dockerfile (Ubuntu image) with all necessary tools pre-installed. Requires [Docker](https://docs.docker.com/get-docker/) installed on your machine. From the repository root, build the image and start a container:
+Run the labs in a local container using the provided Dockerfile (Ubuntu image) with all necessary tools pre-installed. Requires [Docker](https://docs.docker.com/get-docker/) installed on your machine. Choose **either** of the approaches below.
+
+**Build and run manually.** From the repository root, build the image and start a container:
 
 ```bash
 docker build -t sec-lab .
 
 docker run -it --rm sec-lab
 ```
+
+**Or use the Dev Container in VS Code.** With the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) installed, open the repository in VS Code and run **Dev Containers: Reopen in Container** from the Command Palette. This builds the same Dockerfile via [`.devcontainer/devcontainer.json`](./.devcontainer/devcontainer.json) and drops you into the environment with all tools pre-installed.
 
 ### Option 3: Local machine
 
