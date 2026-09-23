@@ -10,7 +10,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     nmap \
     medusa \
-    hydra
+    hydra \
+    python3 \
+    python3-pip \
+    python3-venv
 
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 

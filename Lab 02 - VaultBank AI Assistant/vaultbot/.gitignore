@@ -1,0 +1,5 @@
+# Generated at setup time — never commit secrets or Azure config.
+.env
+.secrets/
+__pycache__/
+*.pyc

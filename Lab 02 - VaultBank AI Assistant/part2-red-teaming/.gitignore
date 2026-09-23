@@ -1,0 +1,4 @@
+.env
+.venv/
+.foundry-project/
+*_scorecard.json

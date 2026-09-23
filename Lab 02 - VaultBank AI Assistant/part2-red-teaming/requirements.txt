@@ -1,0 +1,5 @@
+# AI Red Teaming Agent is preview and evolves quickly; keep this reasonably current.
+azure-ai-evaluation[redteam]>=1.8.0
+azure-identity==1.19.0
+requests==2.32.3
+python-dotenv==1.0.1
