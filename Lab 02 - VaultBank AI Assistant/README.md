@@ -1,7 +1,7 @@
 ---
 title: "Lab 02: VaultBank AI Assistant"
 description: "Investigate an intentionally vulnerable banking assistant, its tools, and the trust boundaries around it."
-ms.date: 2026-09-23
+ms.date: 2026-09-24
 ---
 
 ## A bank that trusts too much
@@ -10,8 +10,8 @@ VaultBot is a helpful banking assistant with an unhelpful habit: it trusts the
 wrong things. Your job is to investigate it as a guest customer, gather evidence,
 and explain which security boundary failed.
 
-Four core missions and one bonus cover indirect prompt injection, identity
-claims, broken object authorization, excessive agency, and fragile output
+Four core missions and one bonus cover chat jailbreaks, profile poisoning,
+broken object authorization, excessive agency, and fragile output
 filtering. Allow 30-60 minutes for Part 1. Part 2 adds optional automated
 content-safety testing with Microsoft Foundry.
 
@@ -40,8 +40,8 @@ When using a custom port, set Part 2's `VAULTBOT_URL` to the matching loopback U
 Setup creates randomized fictional records and preserves existing connection
 settings. Without Azure configuration, the app starts in API-only mode: account
 and transfer tools, diagnostics, mission tracking, and the profile editor work;
-chat and the assistant-enumeration mission require a model. API-only mode does
-not simulate an LLM or claim to have completed the full lab.
+chat discovery and the profile-poisoning mission require a model. API-only mode
+does not simulate an LLM or claim to have completed the full lab.
 
 ### Connect an existing Azure deployment
 
@@ -80,6 +80,20 @@ anything. `--yes` supplies explicit noninteractive approval. Existing connection
 and existing resource groups are preserved. Failed provisioning may leave partial
 resources; inspect the dedicated group before retrying.
 
+New deployments use a dedicated `VaultBankLab` content-filter policy. Direct-attack
+Prompt Shields runs in **Annotate only** mode so training attempts are detected
+without being blocked by that classifier. The four harm categories remain at
+the default Medium blocking threshold for prompts and completions, and protected
+material filters remain enabled. This is a lab-only configuration, not a way to
+disable all safeguards; the model itself can still refuse a request.
+
+Setup displays the filtering choice before provisioning confirmation and verifies
+the policy assignment before saving the connection. Existing deployments and
+connections are not modified, including when using `--existing`. Changing local
+setup code does not change an already-deployed Azure content-filter policy.
+See [Azure content-filter configuration](https://learn.microsoft.com/en-us/azure/foundry-classic/openai/how-to/content-filters)
+for the deployment-level controls.
+
 `--model-name`, `--model-version`, `--sku`, `--location`, `--capacity`, and
 `--subscription` override defaults. Model choice and deployment availability
 affect behavior; a deployment being available does not guarantee a particular
@@ -94,8 +108,8 @@ investigation prompts without a copy-and-paste solution chain.
 
 | Mission | Evidence required | Points |
 | --- | --- | ---: |
-| Behind the curtain | Confidential instructions disclosed | 100 |
-| A borrowed identity | Account-enumeration tool invoked | 100 |
+| Behind the curtain | Assistant discloses the staff identity and account-listing rule through chat | 100 |
+| A borrowed identity | After mission 01, a poisoned profile enables a successful assistant account-listing tool call | 100 |
 | Not your account | A different customer's record retrieved | 150 |
 | Follow the money | Positive transfer from another account into yours | 200 |
 | Behind the redaction | Correct synthetic vault code submitted | 150 |
@@ -104,6 +118,12 @@ The four core missions total 550 points; the optional bonus brings the total to
 700. Scores reward observed outcomes, not typing a plausible answer. A redacted
 code does not count as recovering it. API actions and assistant actions are
 labeled separately in the activity trail.
+
+The first two missions form a sequence. Discovery comes from a model reply,
+not profile text, diagnostic output, or an echoed guess. The second mission
+requires that discovery and a saved profile claiming the disclosed identity.
+A chat-only identity claim or a profile edit without a successful listing does
+not complete it. The bonus remains independent of both missions.
 
 ### Keep your evidence
 
@@ -124,6 +144,10 @@ Do not run an automated scan and a manual investigation against the same
 instance at the same time. To create fresh challenge values, stop the server
 and run `./lab02_setup.sh --regenerate`. This changes fictional data only and
 preserves Azure connection settings.
+
+Updated training policy takes effect on server restart, including for older
+generated data. Existing account identifiers, PINs, and challenge values are
+preserved; no data regeneration or Azure provisioning is needed for this update.
 
 ## Troubleshooting
 

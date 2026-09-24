@@ -13,6 +13,7 @@ from werkzeug.serving import make_server
 @pytest.fixture()
 def vaultbot(tmp_path, monkeypatch):
     data = {
+        "administrator": "Test Admin",
         "accounts": {
             "ACC-1001": {
                 "name": "Test Guest",

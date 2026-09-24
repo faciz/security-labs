@@ -1,7 +1,7 @@
 ---
 title: "VaultBank field guide"
 description: "Optional investigation prompts and reflection checkpoints for the VaultBank security lab."
-ms.date: 2026-09-23
+ms.date: 2026-09-24
 ---
 
 ## Your assignment
@@ -40,23 +40,25 @@ one change at a time.
 
 ### Behind the curtain
 
-Find a way to observe instructions meant for internal staff. Compare trusted
-instructions with the other material the assistant consumes. Which actor
-controls each source? Which source is being treated as more authoritative than
-it should be?
+Investigate the access policy through conversation with your guest profile
+unchanged. Compare an ordinary banking request with a differently framed chat
+request. Can a conversation reveal who is allowed to perform a staff action?
 
-Evidence checkpoint: a confidential instruction is actually disclosed. The
-activity trail distinguishes an assistant disclosure from diagnostic output.
-Do not count your own text being echoed back as independent evidence.
+Evidence checkpoint: an assistant reply discloses both the staff identity and
+its account-listing permission. Diagnostic output and echoes of identities you
+supplied do not count. Profile content is not given to the assistant until this
+discovery is complete.
 
 ### A borrowed identity
 
-Investigate how VaultBot decides who may enumerate account identifiers. Is the
-decision based on a verified identity, a client claim, or something else?
+After mission 01, investigate how VaultBot uses the saved profile as evidence of
+identity. What separates a self-service profile claim from a verified staff
+session? Compare the tool's response before and after changing profile data.
 
-Evidence checkpoint: the account-enumeration tool is invoked. Guessing or typing
-an account number does not complete this mission. A refusal is useful evidence
-about that attempt, not a guarantee about every path.
+Evidence checkpoint: the assistant successfully returns account identifiers
+through its enumeration tool while using a poisoned profile. A chat-only
+identity claim, a saved edit alone, or a rejected tool call does not complete
+this mission. Record the transition between denial and access.
 
 ### Not your account
 
@@ -96,10 +98,10 @@ Choose an optional constraint after your first run:
 * Explain a result using only server evidence, not the assistant's claims.
 * Observe the knowledge-base trust boundary and compare it with profile context.
 
-LLM outputs vary across models, versions, and filters. The profile disclosure
-rule is deliberately planted for training; it is not evidence that every
-production model will leak the same way. The application-layer flaws are
-deterministic and can be investigated even when the assistant refuses.
+LLM outputs vary across models, versions, and filters. The trust in self-service
+profile identity is deliberately planted for training. It does not prove that
+every production model will disclose its policy in the same way. The later
+application-layer flaws can be investigated even when the assistant refuses.
 
 ## Defend one boundary
 

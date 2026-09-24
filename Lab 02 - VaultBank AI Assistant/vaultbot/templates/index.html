@@ -179,6 +179,8 @@
          data-key="{{ mission.key }}"
          {% if not loop.first %}hidden{% endif %}
          aria-labelledby="title-{{ mission.key }}"><span class="eyebrow">{{ 'BONUS MISSION' if mission.bonus else 'ACTIVE BRIEF' }} / {{ mission.number }}</span><h3 id="title-{{ mission.key }}">{{ mission.title }}</h3><p class="mission-objective">{{ mission.objective }}</p>
+        {% if mission.prerequisite %}<p class="mission-prerequisite small-text muted"
+   role="status">Complete mission 01 first.</p>{% endif %}
         {% if mission.bonus %}<form id="code-form" class="code-form"><label class="small-text" for="vault-code">Recovered vault code</label><div class="inline-form"><input type="password"
        id="vault-code"
        maxlength="200"

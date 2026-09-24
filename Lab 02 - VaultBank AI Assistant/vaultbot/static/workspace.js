@@ -277,15 +277,31 @@
     snapshot.missions.forEach((mission) => {
       const button = document.querySelector(`[data-mission="${mission.key}"]`);
       const completed = Boolean(snapshot.captured[mission.key]);
+      const locked = Boolean(
+        mission.prerequisite && !snapshot.captured[mission.prerequisite],
+      );
+      const status = completed
+        ? "completed"
+        : locked
+          ? "locked"
+          : "not completed";
       button.classList.toggle("completed", completed);
       button.setAttribute(
         "aria-label",
-        `${mission.number}: ${mission.title}, ${completed ? "completed" : "not completed"}, ${mission.points} points`,
+        `${mission.number}: ${mission.title}, ${status}, ${mission.points} points`,
       );
       const number = button.querySelector(".mission-number");
       number.replaceChildren(
-        completed ? icon("check") : document.createTextNode(mission.number),
+        completed
+          ? icon("check")
+          : locked
+            ? icon("lock")
+            : document.createTextNode(mission.number),
       );
+      const prerequisite = byId(`mission-${mission.key}`).querySelector(
+        ".mission-prerequisite",
+      );
+      if (prerequisite) prerequisite.hidden = !locked;
       byId(`mission-${mission.key}`).querySelector(".mission-debrief").hidden =
         !completed;
       if (
