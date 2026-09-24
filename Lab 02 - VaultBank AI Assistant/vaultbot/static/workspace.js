@@ -206,7 +206,9 @@
       byId("transfer-form").reset();
       byId("code-form").reset();
       byId("transfer-dialog").close();
-      byId("service-result").hidden = true;
+      byId("service-result").hidden = false;
+      byId("service-result").textContent = "Service reachable";
+      byId("service-status-dot").classList.remove("amber");
       ["chat-error", "pin-error", "transfer-result", "code-result"].forEach(
         (id) => message(id, ""),
       );
@@ -550,17 +552,25 @@
   });
   byId("check-service").addEventListener("click", async () => {
     const button = byId("check-service");
+    const result = byId("service-result");
+    const indicator = byId("service-status-dot");
     button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    result.hidden = false;
+    result.textContent = "Checking...";
+    indicator.classList.add("amber");
     try {
-      byId("service-result").textContent = JSON.stringify(
-        await request("/api/diagnostics"),
-        null,
-        2,
-      );
-    } catch (error) {
-      byId("service-result").textContent = error.message;
+      const diagnostics = await request("/api/diagnostics");
+      const reachable =
+        diagnostics.service === "VaultBot" && diagnostics.status === "ok";
+      result.textContent = reachable
+        ? "Service reachable"
+        : "Service unavailable";
+      indicator.classList.toggle("amber", !reachable);
+    } catch {
+      result.textContent = "Service unavailable";
     } finally {
-      byId("service-result").hidden = false;
+      button.removeAttribute("aria-busy");
       button.disabled = false;
     }
   });

@@ -79,12 +79,16 @@
       <section class="service-section" aria-labelledby="service-heading">
         <div class="section-heading">
           <h2 id="service-heading">Service desk</h2>
-          <span class="status-dot"></span>
         </div>
-        <button class="text-button"
-                id="check-service"
-                type="button">{{ icon("activity") }} Check service status {{ icon("arrow-up-right") }}</button>
-        <pre id="service-result" class="service-result" aria-live="polite" hidden></pre>
+        <div class="service-status">
+          <span id="service-status-dot" class="status-dot" aria-hidden="true"></span>
+          <p id="service-result" class="service-result" role="status">Service reachable</p>
+          <button class="icon-button small"
+                  id="check-service"
+                  type="button"
+                  title="Refresh service status"
+                  aria-label="Refresh service status">{{ icon("refresh-cw") }}</button>
+        </div>
       </section>
       <div class="account-footer">{{ icon("shield-check") }} Local sandbox. No real money.</div>
     </aside>

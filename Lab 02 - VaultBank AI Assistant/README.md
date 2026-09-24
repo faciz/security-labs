@@ -166,6 +166,9 @@ preserved; no data regeneration or Azure provisioning is needed for this update.
 It does not make a cloud call or verify Azure credentials. The app never returns
 Azure keys or authentication details in health or lab-progress responses.
 
+Verbose diagnostics return a readable text report in the default `text`
+format. Basic diagnostics and encoded responses remain JSON.
+
 ## Development checks
 
 From this lab directory:

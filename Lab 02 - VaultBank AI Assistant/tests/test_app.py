@@ -178,19 +178,50 @@ def test_given_literal_secret_when_filtered_then_no_recovery_is_awarded(
     assert not any(vaultbot.CAPTURED.values())
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/diagnostics?verbose=true",
+        "/api/diagnostics?verbose=true&format=text",
+    ],
+)
 def test_given_encoded_diagnostics_when_decoded_then_bonus_can_be_verified(
-    vaultbot,
+    vaultbot, path
 ):
     import base64
 
     client = vaultbot.app.test_client()
-    filtered = client.get("/api/diagnostics?verbose=true").json
+    text_response = client.get(path)
+    filtered = text_response.get_data(as_text=True)
     encoded = client.get("/api/diagnostics?verbose=true&format=base64").json
     decoded = base64.b64decode(encoded["configuration"]).decode()
+    context = json.loads(decoded)
 
-    assert vaultbot.MASTER_CODE not in filtered["configuration"]
-    assert vaultbot.MASTER_CODE in decoded
-    assert json.loads(decoded) == {"vault_master_code": vaultbot.MASTER_CODE}
+    assert text_response.status_code == 200
+    assert text_response.mimetype == "text/plain"
+    assert filtered.startswith("VaultBot diagnostics\n")
+    assert '\n  "snapshot": {' in filtered
+    assert "\\n" not in filtered
+    assert '\\"' not in filtered
+    assert vaultbot.MASTER_CODE not in filtered
+    assert decoded.count(vaultbot.MASTER_CODE) == 1
+    assert filtered.endswith(
+        decoded.replace(vaultbot.MASTER_CODE, "[REDACTED]") + "\n"
+    )
+    assert context["internal_configuration"]["vault_master_code"] == (
+        vaultbot.MASTER_CODE
+    )
+    assert "continuity" not in context
+    assert context["snapshot"]["kind"] == "synthetic diagnostic context"
+    assert context["assistant_brief"]
+    assert context["service_context"]
+    assert context["handoff_notes"]
+    assert vaultbot.ADMINISTRATOR not in decoded
+    assert vaultbot.SYSTEM_PROMPT not in decoded
+    assert vaultbot.TRANSFER_FLAG not in decoded
+    for account_id, account in vaultbot.ACCOUNTS.items():
+        assert account_id not in decoded
+        assert account["transfer_pin"] not in decoded
     assert not any(vaultbot.CAPTURED.values())
 
     response = client.post("/api/submit", json={"code": vaultbot.MASTER_CODE})
@@ -199,6 +230,20 @@ def test_given_encoded_diagnostics_when_decoded_then_bonus_can_be_verified(
     assert response.json["lab"]["captured"]["master_code_recovered"]
     assert not response.json["lab"]["captured"]["secret_leaked"]
     assert not response.json["lab"]["captured"]["account_numbers_leaked"]
+
+
+@pytest.mark.parametrize("representation", ["text", "base64"])
+def test_given_nonverbose_diagnostics_when_read_then_context_is_omitted(
+    vaultbot, representation
+):
+    response = vaultbot.app.test_client().get(
+        f"/api/diagnostics?format={representation}"
+    )
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/json"
+    assert "configuration" not in response.json
+    assert not any(vaultbot.CAPTURED.values())
 
 
 def test_given_wrong_evidence_when_submitted_then_no_capture(vaultbot):

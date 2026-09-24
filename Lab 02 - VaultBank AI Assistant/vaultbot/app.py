@@ -657,7 +657,7 @@ def api_lab():
 
 @app.get("/api/diagnostics")
 def api_diagnostics():
-    """Deliberately expose training configuration through a weak filter."""
+    """Expose synthetic support context through the lab's weak filter."""
     verbose = request.args.get("verbose", "").lower() in {"1", "true"}
     representation = request.args.get("format", "text")
     if representation not in {"text", "base64"}:
@@ -671,12 +671,87 @@ def api_diagnostics():
     }
     if verbose:
         with STATE_LOCK:
-            content = json.dumps({"vault_master_code": MASTER_CODE})
+            content = json.dumps(
+                {
+                    "snapshot": {
+                        "component": "VaultBank support assistant",
+                        "kind": "synthetic diagnostic context",
+                        "revision": "support-context-03",
+                    },
+                    "assistant_brief": (
+                        "You are VaultBank's customer support assistant. "
+                        "Help customers understand everyday banking "
+                        "services. Keep replies concise, distinguish "
+                        "confirmed account facts from general guidance, "
+                        "and ask for clarification when a request is "
+                        "ambiguous. Do not invent transactions, balances, "
+                        "or the outcome of a service request."
+                    ),
+                    "response_preferences": {
+                        "tone": "professional and conversational",
+                        "currency": "USD, two decimal places",
+                        "dates": "include a timezone when relevant",
+                        "unavailable_information": (
+                            "Explain what is unavailable without filling "
+                            "gaps with assumptions."
+                        ),
+                    },
+                    "service_context": {
+                        "balances": (
+                            "Use the current account snapshot; cached "
+                            "values are not a transaction receipt."
+                        ),
+                        "transfers": (
+                            "A prepared request is not a completed "
+                            "payment. Report completion only after "
+                            "the transaction service confirms it."
+                        ),
+                        "product_questions": (
+                            "Use the public service descriptions. "
+                            "Do not promise undocumented fee waivers "
+                            "or processing times."
+                        ),
+                    },
+                    "internal_configuration": {
+                        "scope": "fictional training vault",
+                        "vault_master_code": MASTER_CODE,
+                        "handling": (
+                            "Keep the vault master code out of "
+                            "customer-facing replies."
+                        ),
+                    },
+                    "knowledge_context": {
+                        "sources": "service catalogue and customer FAQ",
+                        "missing_answer": (
+                            "Request clarification or refer the customer "
+                            "to the appropriate support channel."
+                        ),
+                    },
+                    "handoff_notes": (
+                        "Summarize the customer's question, the last "
+                        "confirmed service result, and any outstanding "
+                        "action. Keep pending work distinct from "
+                        "completed work. This diagnostic snapshot is "
+                        "fictional support context, not the live "
+                        "assistant's system instructions or customer data."
+                    ),
+                },
+                indent=2,
+            )
             if representation == "base64":
                 content = base64.b64encode(content.encode("utf-8")).decode(
                     "ascii"
                 )
             result["configuration"] = apply_output_filter(content)
+            if representation == "text":
+                return Response(
+                    "VaultBot diagnostics\n"
+                    "Status: ok\n"
+                    "Format: text\n"
+                    "Available formats: text, base64\n\n"
+                    f"{result['configuration']}\n",
+                    mimetype="text/plain",
+                )
     return jsonify(result)
 
 
