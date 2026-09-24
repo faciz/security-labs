@@ -1,28 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "Setting up Offensive Security Lab 02..."
+main() {
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if ! command -v uv >/dev/null 2>&1; then
+    printf 'Install uv first: https://docs.astral.sh/uv/getting-started/installation/\n' >&2
+    return 2
+  fi
+  exec uv run --project "${script_dir}" --locked \
+    python "${script_dir}/vaultbot/setup_lab.py" "$@"
+}
 
-SCRIPT_DIR="$(dirname "$0")"
-SOURCE_SCRIPT="$SCRIPT_DIR/.util/lab02_setup_source.sh"
-ENCODED_SCRIPT="$SCRIPT_DIR/.util/lab02_setup_encoded.txt"
-
-# Check if the decoded source script exists
-if [ -f "$SOURCE_SCRIPT" ]; then
-    chmod +x "$SOURCE_SCRIPT"
-    "$SOURCE_SCRIPT" "$@"
-elif [ -f "$ENCODED_SCRIPT" ]; then
-    TEMP_SCRIPT=$(mktemp)
-
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        base64 -D -i "$ENCODED_SCRIPT" -o "$TEMP_SCRIPT"
-    else
-        base64 -d "$ENCODED_SCRIPT" > "$TEMP_SCRIPT"
-    fi
-
-    chmod +x "$TEMP_SCRIPT"
-    "$TEMP_SCRIPT" "$@"
-    rm -f "$TEMP_SCRIPT"
-else
-    echo "Error: No setup file found!"
-    exit 1
-fi
+main "$@"

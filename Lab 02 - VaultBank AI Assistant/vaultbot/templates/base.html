@@ -1,0 +1,89 @@
+{% macro icon(name) -%}
+  <i data-lucide="{{ name }}" aria-hidden="true"></i>{%- endmacro %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#183d32">
+    <title>{% block title %}VaultBank | Lab 02{% endblock %}</title>
+    <link rel="icon" href="data:,">
+    <link rel="preload"
+          href="{{ url_for('static', filename='vendor/dm-sans-latin.woff2') }}"
+          as="font"
+          type="font/woff2"
+          crossorigin>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='styles.css') }}">
+    <script src="{{ url_for('static', filename='vendor/lucide.min.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='common.js') }}" defer></script>
+    {% block scripts %}{% endblock %}
+  </head>
+  <body data-account="{{ account }}"
+        data-model-configured="{{ 'true' if model_configured else 'false' }}">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="VaultBank workspace"><span class="brand-mark">{{ icon("vault") }}</span><span>VaultBank<span class="brand-period">.</span></span></a>
+      <nav class="primary-nav" aria-label="Primary">
+        <a href="/"
+           {% if request.path == '/' %}aria-current="page"{% endif %}
+           title="Workspace">{{ icon("panels-top-left") }}<span>Workspace</span></a>
+        <a href="/profile"
+           {% if request.path == '/profile' %}aria-current="page"{% endif %}
+           title="Profile">{{ icon("user-round") }}<span>Profile</span></a>
+      </nav>
+      <div class="header-actions">{% block actions %}{% endblock %}<button class="icon-button"
+        id="brief-open"
+        type="button"
+        title="Lab brief"
+        aria-label="Lab brief">{{ icon("circle-help") }}</button></div>
+    </header>
+    <div class="lab-strip"><span class="lab-label"><span class="lab-number">02</span> AI SECURITY LAB</span><span class="environment-note">{{ icon("shield-alert") }} Intentionally vulnerable<span class="desktop-only"> / fictional funds</span></span><span class="mode-label"
+      title="Model configuration, not a connectivity check"><span class="status-dot {{ '' if model_configured else 'amber' }}"></span>{{ 'Azure configured' if model_configured else 'API-only mode' }}</span></div>
+    {% block content %}{% endblock %}
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <dialog id="brief-dialog" class="dialog" aria-labelledby="brief-title">
+      <div class="dialog-heading">
+        <span class="eyebrow">AUTHORIZED TRAINING ONLY</span><button type="button"
+        class="icon-button"
+        data-close="brief-dialog"
+        aria-label="Close lab brief"
+        title="Close">{{ icon("x") }}</button>
+      </div>
+      <h2 id="brief-title">A bank that trusts too much.</h2>
+      <p>You are a guest customer investigating VaultBot's trust boundaries. All customers, balances, PINs, and vault codes are synthetic.</p>
+      <dl class="brief-facts">
+        <div>
+          <dt>Scope</dt>
+          <dd>
+            Your local VaultBank instance only
+          </dd>
+        </div>
+        <div>
+          <dt>Core investigation</dt>
+          <dd>
+            Four evidence-backed missions
+          </dd>
+        </div>
+        <div>
+          <dt>Bonus</dt>
+          <dd>
+            Recover the synthetic vault code
+          </dd>
+        </div>
+        <div>
+          <dt>Time box</dt>
+          <dd>
+            About 30-60 minutes
+          </dd>
+        </div>
+      </dl>
+      <p class="callout">Do not use real customer data or expose this app publicly. Each running server is one shared, single-learner sandbox.</p>
+      <div class="dialog-actions">
+        <button type="button"
+                class="button primary"
+                data-close="brief-dialog">Return to workspace {{ icon("arrow-right") }}</button>
+      </div>
+    </dialog>
+  </body>
+</html>

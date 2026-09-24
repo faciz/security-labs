@@ -1,0 +1,15 @@
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.env
+**/.env
+**/.secrets/
+**/.scan_*/
+part2-red-teaming/runs/
+**/playwright-report/
+**/test-results/
+.copilot-tracking/

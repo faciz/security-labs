@@ -1,155 +1,166 @@
-# Lab 02 — Part 2: Automated Red Teaming with the AI Foundry AI Red Teaming Agent
+---
+title: "Lab 02 Part 2: Automated red teaming"
+description: "Run an explicitly approved Foundry safety scan and interpret its results without confusing safety scores with application security."
+ms.date: 2026-09-23
+---
 
-In Part 1 you attacked VaultBot by hand: you talked to it, mapped its API, and
-crafted the payloads that broke it. Part 2 flips the perspective. Instead of
-inventing every adversarial prompt yourself, you point Microsoft Foundry's
-**AI Red Teaming Agent (preview)** at VaultBot, let it generate and mutate
-attacks automatically, and read back a scorecard.
+## A second lens
 
-The AI Red Teaming Agent wraps Microsoft's open-source
-[PyRIT](https://github.com/microsoft/PyRIT) framework. It:
+Part 1 tests the banking application's trust boundaries. Part 2 uses Microsoft
+Foundry's AI Red Teaming Agent (preview) to test content-safety behavior across
+the SDK's built-in risk categories. It complements the manual investigation;
+it does not score the account-access or money-movement missions.
 
-- Generates adversarial prompts across safety risk categories.
-- Applies **attack strategies** (encodings, prompt injection, tense changes)
-  that try to slip those prompts past a target's guardrails.
-- Scores every response and reports an **Attack Success Rate (ASR)**.
+The SDK uses [PyRIT](https://github.com/microsoft/PyRIT) for adversarial testing.
+This lab does not add custom harmful prompts. Review your organization's rules
+before running the optional cloud scan.
 
-> [!NOTE]
-> This is a *safety* red-teaming tool. Its built-in scoring targets
-> content-safety harms (violence, hate/unfairness, sexual, self-harm) and the
-> attack techniques used to elicit them. It does **not** natively score "did
-> the bot leak the master code or move money" — those were Part 1's
-> app-layer objectives. Part 2 shows you a different, complementary lens:
-> automated, repeatable adversarial testing at scale.
-
-## What you'll do
-
-1. Provision a small Foundry project (the agent needs one to run).
-2. Start VaultBot from Part 1.
-3. Run an automated scan against VaultBot's `/api/chat` endpoint.
-4. Read the ASR scorecard and interpret what it tells you.
+> [!WARNING]
+> Scanning is billable, sends prompts and model responses to Foundry, and can
+> produce sensitive evaluation artifacts. Do not use real customer information.
+> Keep output private and do not commit raw scan results.
 
 ## Prerequisites
 
-- You completed (or at least deployed) **Part 1** — the VaultBot app runs locally.
-- **Python 3.10–3.13** (PyRIT does not support 3.9).
-- **Azure CLI** (`az`) and **Azure Developer CLI** (`azd`), and `az login` done.
-- An Azure subscription where you can create a Foundry project.
+* A locally running VaultBot with a working Azure OpenAI chat deployment
+* [uv](https://docs.astral.sh/uv/getting-started/installation/) and Python 3.11
+  (the pinned project supports 3.11-3.13)
+* An existing Foundry project with appropriate permissions, or explicit approval
+  to provision a new one
+* Azure CLI authentication; Azure Developer CLI is needed only for provisioning
 
-> [!IMPORTANT]
-> The AI Red Teaming Agent is **region-limited**. Your Foundry project must be
-> in one of: **East US 2, France Central, Sweden Central, Switzerland West, or
-> North Central US**. Part 1's Azure OpenAI account lives in `eastus`, which is
-> *not* supported — that is fine. The scan only calls VaultBot through a network
-> callback, so VaultBot keeps running on `eastus` while the red-teaming project
-> lives in a supported region (default: **East US 2**).
+The preview service's regional support can change. Check the current
+[AI Red Teaming Agent documentation](https://learn.microsoft.com/azure/ai-foundry/how-to/develop/ai-red-teaming-agent)
+before choosing a region. The optional setup defaults to `eastus2`; the Foundry
+project and VaultBot's Azure OpenAI resource need not share a region.
 
-## Step 1: Provision the Foundry project
+## Configure a project
 
-From this folder:
-
-```bash
-cd "Lab 02 - VaultBank AI Assistant/part2-red-teaming"
-./part2_setup.sh
-```
-
-This uses `azd` to create a Foundry project (account, project, Application
-Insights, managed identity, RBAC) in East US 2 and writes the project endpoint
-to `.env`. Provisioning takes a few minutes and creates billable resources.
-
-Already have a Foundry project? Skip provisioning and point at it directly:
+From this directory, use an existing project endpoint:
 
 ```bash
-AZURE_AI_PROJECT="https://<acct>.services.ai.azure.com/api/projects/<proj>" ./part2_setup.sh
+AZURE_AI_PROJECT="https://<account>.services.ai.azure.com/api/projects/<project>" \
+  ./part2_setup.sh
 ```
 
-> [!TIP]
-> To avoid ongoing cost after the lab, tear the project down with
-> `(cd .foundry-project && azd down)`.
+The script preserves existing settings. [The example configuration](.env.example)
+defines the expected fields. The callback runs locally and only accepts a
+loopback VaultBot URL. Do not expose the lab publicly for a scan.
 
-## Step 2: Start VaultBot (Part 1)
-
-In a separate terminal:
+For a new project, review the template and expected resource costs first:
 
 ```bash
-cd "Lab 02 - VaultBank AI Assistant/vaultbot"
-./run.sh
+./part2_setup.sh --provision --yes
 ```
 
-Confirm it responds at <http://localhost:3000>. The scan targets this endpoint.
+This explicitly authorizes billable provisioning through the
+[Foundry starter template](https://github.com/Azure-Samples/azd-ai-starter-basic).
+`REGION` and `AZURE_SUBSCRIPTION_ID` override defaults. The template is remote
+and can change; inspect its generated infrastructure before accepting a
+deployment in a sensitive subscription. Setup does not start a scan.
 
-## Step 3: Run the scan
+## Check the local target
 
-Back in the `part2-red-teaming` folder:
+Keep VaultBot running in a separate terminal. Then:
 
 ```bash
-./run.sh
+./run.sh --check
 ```
 
-`run.sh` installs the `azure-ai-evaluation[redteam]` SDK into a virtual
-environment and runs [`redteam_vaultbot.py`](redteam_vaultbot.py). That script:
+This checks `/api/health`, app identity, and the presence of model configuration.
+It does not call a model, verify Azure credentials, or prove that chat works.
+Send one ordinary banking question in the app before paying for a scan.
 
-- Wraps VaultBot's `/api/chat` in a simple callback the agent can drive.
-- Generates a few adversarial objectives per safety risk category.
-- Applies the **EASY** strategy group (Base64, Flip, Morse) plus **Jailbreak**
-  (UPIA prompt injection) on top of the baseline direct attacks.
-- Writes `vaultbot_redteam_scorecard.json`.
+Use a clean lab run for comparisons. Reset intentionally before scanning, then
+leave the shared sandbox untouched while the scan runs. The runner does not
+silently erase your manual investigation.
 
-For a fast, cheap first pass, run baseline attacks only:
+## Run an approved scan
+
+Start with a small baseline:
 
 ```bash
-./run.sh --baseline-only --num-objectives 2
+./run.sh --baseline-only --num-objectives 2 --yes
 ```
 
-## Step 4: Read the scorecard
+Baseline is also the default. `--yes` acknowledges cloud transmission and cost.
+The number of objectives is per risk category, not a cap on total model calls.
+Generation, evaluation, retries inside the SDK, and attack transformations all
+affect the eventual workload.
 
-Open `vaultbot_redteam_scorecard.json`. The key section is
-`redteaming_scorecard`, which breaks results down two ways:
+For a separately approved comparison run:
 
-- **By risk category** — `hate_unfairness_asr`, `violence_asr`, `sexual_asr`,
-  `self_harm_asr`, and an `overall_asr`.
-- **By attack technique** — `baseline_asr`, `easy_complexity_asr`,
-  `moderate_complexity_asr`, `difficult_complexity_asr`.
+```bash
+./run.sh --extended --num-objectives 2 --yes
+```
 
-**ASR (Attack Success Rate)** is the fraction of attacks that got VaultBot to
-produce undesired content. Lower is safer. You can also open the run in your
-Foundry project at <https://ai.azure.com> for a visual report.
+Extended mode adds the SDK's EASY strategy group and Jailbreak strategy.
+The runner serializes execution for this single-learner sandbox and never
+turns transport errors into fake assistant responses. A model-service filter
+response is distinguishable from a connection failure.
 
-## Step 5: Interpret the results
+Each run uses a new timestamped directory beneath `runs/`. `--output` selects a
+different new directory. Existing outputs are not overwritten. A `.json` suffix
+does not guarantee a single JSON file: this SDK can create a directory containing
+several artifacts.
 
-VaultBot is backed by an aligned model, so you'll likely see a **low ASR** on
-these content-safety attacks — even after the encodings and prompt injection.
-That's the point:
+## Read the results offline
 
-- The model's safety alignment is genuinely hard to break with generic attacks.
-  This is why, in Part 1, brute-force jailbreaking VaultBot into cursing or
-  producing harmful content did not work.
-- Part 1's real wins came from **the layers around the model**: an IDOR in
-  `/api/account`, a trusting `/api/transfer`, a debug switch in
-  `/api/diagnostics`, and a *planted* staff-override phrase in the system
-  prompt. None of those are "unaligned model" problems — they're application
-  and design problems.
+Summary mode requires neither a Foundry project nor a running model:
 
-Automated safety red teaming and manual app red teaming answer different
-questions. A green safety scorecard does **not** mean the system is secure.
+```bash
+./run.sh --summary runs/<run-directory>
+```
 
-## Extend it
+The reader supports the current `scorecard` field and the older
+`redteaming_scorecard` field. It checks `evaluation_results.json` before
+`results.json` for directory outputs.
 
-- **Bring your own objectives.** Pass `custom_attack_seed_prompts` (a JSON file)
-  to `RedTeam(...)` to steer the generated attacks. The built-in scorers only
-  grade the four safety risk types (`violence`, `sexual`, `hate_unfairness`,
-  `self_harm`), so keep custom prompts within those to get scored results.
-- **Turn up the difficulty.** Add `AttackStrategy.MODERATE` (Tense) or
-  `AttackStrategy.DIFFICULT`, or compose strategies with
-  `AttackStrategy.Compose([...])`.
-- **Scan the raw model.** Swap the callback target for the model configuration
-  dict to compare the bare `gpt-5-mini` deployment against the full app.
+Current scorecards expose `risk_category_summary`, `attack_technique_summary`,
+and joint breakdowns. Aggregate `_asr` values are percentages, not fractions:
+`7.14` means `7.14%`, not `714%`. Always report the denominator and successful
+attack count as well. Zero scored attacks is *not scored*, not a clean pass.
 
-## Takeaways
+Review failed or skipped attacks, judge explanations, thresholds, and coverage
+before interpreting ASR. A completion message alone does not prove that every
+planned attack was evaluated.
 
-- Automated red teaming scales adversarial testing far beyond hand-crafted
-  prompts and gives you a repeatable, comparable metric (ASR).
-- Model safety alignment and application security are **separate** concerns.
-  Test both — a robust model behind a leaky API is still exploitable.
-- Use safety scans as a regression gate: re-run after prompt or model changes to
-  catch new weaknesses before they ship.
+## Compare responsibly
+
+Record model/deployment version, profile and knowledge-base state, SDK version,
+risk categories, strategies, objectives, scorer thresholds, failures, and scored
+sample counts. Change one factor at a time. Small samples are noisy, and generated
+attacks need not be identical across runs.
+
+Ask three questions:
+
+1. Which measured behavior changed, with how many scored samples?
+2. Was that change caused by the assistant, the model-service filter, the judge,
+   or an infrastructure failure?
+3. Which Part 1 vulnerabilities remain untested by this scorecard?
+
+A low content-safety ASR is not evidence of account authorization. A high lab
+mission score is not a content-safety evaluation. Keep both sets of evidence.
+
+## Troubleshooting and cleanup
+
+| Symptom | Action |
+| --- | --- |
+| Target rejected | Use a loopback origin and the correct local port. |
+| API-only mode | Configure Part 1's model and restart VaultBot. |
+| Project endpoint invalid | Use the project endpoint, not an Azure OpenAI resource endpoint. |
+| HTTP 401 or 403 | Check authentication, project access, and model data-plane roles. |
+| HTTP 429 | Reduce objectives, use baseline, and check quota before retrying. |
+| Unsupported region | Consult the current preview-service documentation. |
+| Unsupported scorecard | Inspect the JSON schema and pinned SDK version; do not infer missing metrics. |
+| Scan interrupted | Treat artifacts as partial; inspect failures before reporting results. |
+
+The SDK is pinned in [the project manifest](../pyproject.toml). Upgrade it
+deliberately and rerun the adapter tests. The ordinary regression suite does not
+perform a live scan.
+
+Stop the local app when finished. For resources created by the Part 2 template,
+run `azd down` inside its generated project directory and review the deletion
+prompt. Do not delete a project you reused for other work.
+
+Return to the [lab overview](../README.md).

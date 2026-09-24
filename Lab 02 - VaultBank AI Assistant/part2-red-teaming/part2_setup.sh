@@ -1,99 +1,75 @@
-#!/bin/bash
-# Part 2 setup: provision a Microsoft Foundry project for the AI Red Teaming Agent.
-#
-# The red-teaming agent needs its OWN Foundry project in a region that supports
-# AI red teaming (NOT the eastus Azure OpenAI account from Part 1). It scans
-# VaultBot remotely over a callback, so VaultBot can keep running on eastus.
-#
-# Already have a Foundry project? Skip provisioning:
-#     AZURE_AI_PROJECT="https://<acct>.services.ai.azure.com/api/projects/<proj>" ./part2_setup.sh
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+main() {
+  local script_dir lab_dir project_dir region env_name subscription endpoint
+  local provision=false approved=false argument
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  lab_dir="$(dirname "${script_dir}")"
+  project_dir="${script_dir}/.foundry-project"
+  region="${REGION:-eastus2}"
+  env_name="${ENV_NAME:-vaultbot-redteam}"
+  for argument in "$@"; do
+    case "${argument}" in
+      --provision) provision=true ;;
+      --yes) approved=true ;;
+      --help|-h)
+        printf 'Usage: ./part2_setup.sh [--provision --yes]\n'
+        printf 'Default: save AZURE_AI_PROJECT or preserve existing settings.\n'
+        printf 'Provisioning creates billable resources. REGION defaults to eastus2.\n'
+        return 0 ;;
+      *) printf 'Unknown argument: %s\n' "${argument}" >&2; return 2 ;;
+    esac
+  done
+  if [[ -f "${script_dir}/.env" ]]; then
+    printf 'Existing Foundry connection preserved. No resources created.\n'
+    return 0
+  fi
+  command -v uv >/dev/null 2>&1 || { printf 'Install uv first.\n' >&2; return 2; }
+  if [[ -n "${AZURE_AI_PROJECT:-}" ]]; then
+    exec uv run --project "${lab_dir}" --locked \
+      python "${script_dir}/redteam_vaultbot.py" --configure
+  fi
+  if [[ "${provision}" != true || "${approved}" != true ]]; then
+    printf 'Set AZURE_AI_PROJECT for an existing project, or use --provision --yes.\n' >&2
+    printf 'Provisioning creates billable resources; review the Part 2 guide first.\n' >&2
+    return 2
+  fi
+  command -v az >/dev/null 2>&1 || { printf 'Azure CLI is required.\n' >&2; return 2; }
+  command -v azd >/dev/null 2>&1 || { printf 'Azure Developer CLI is required.\n' >&2; return 2; }
+  subscription="${AZURE_SUBSCRIPTION_ID:-$(az account show --query id -o tsv)}"
+  printf 'Approved Foundry provisioning in %s. Check current preview regional support.\n' "${region}"
+  mkdir -p "${project_dir}"
+  if [[ ! -f "${project_dir}/azure.yaml" ]]; then
+    local init_dir
+    init_dir="$(mktemp -d)"
+    trap 'rm -rf -- "${init_dir}"' EXIT
+    cd "${init_dir}"
+    azd init -t Azure-Samples/azd-ai-starter-basic -e "${env_name}" --no-prompt
+    cp -a "${init_dir}/." "${project_dir}/"
+    cd "${project_dir}"
+    rm -rf -- "${init_dir}"
+    trap - EXIT
+  else
+    cd "${project_dir}"
+  fi
+  if [[ -d ".azure/${env_name}" ]]; then
+    azd env select "${env_name}" --no-prompt
+  else
+    azd env new "${env_name}" --subscription "${subscription}" \
+      --location "${region}" --no-prompt
+  fi
+  azd env set AZURE_LOCATION "${region}"
+  azd provision --no-prompt
+  endpoint="$(azd env get-value AZURE_AI_PROJECT_ENDPOINT)"
+  if [[ -z "${endpoint}" ]]; then
+    printf 'Provisioning did not return a project endpoint. Inspect the azd environment.\n' >&2
+    return 1
+  fi
+  AZURE_AI_PROJECT="${endpoint}" uv run --project "${lab_dir}" --locked \
+    python "${script_dir}/redteam_vaultbot.py" --configure
+  printf 'Setup complete. Run ./run.sh --check before an approved scan.\n'
+  printf 'Cleanup: run azd down inside the generated Foundry project directory.\n'
+}
 
-ENV_FILE="$SCRIPT_DIR/.env"
-SUPPORTED="eastus2 francecentral swedencentral switzerlandwest northcentralus"
-REGION="${REGION:-eastus2}"
-
-echo "== VaultBot Part 2: AI Red Teaming Agent setup =="
-
-# If the user already has a Foundry project, just record it and stop.
-if [ -n "$AZURE_AI_PROJECT" ]; then
-  echo "Using provided AZURE_AI_PROJECT."
-  cat > "$ENV_FILE" <<EOF
-AZURE_AI_PROJECT=$AZURE_AI_PROJECT
-VAULTBOT_URL=${VAULTBOT_URL:-http://localhost:3000}
-EOF
-  echo "Wrote $ENV_FILE"
-  exit 0
-fi
-
-# The red-teaming agent is region-limited — fail early on an unsupported region.
-case " $SUPPORTED " in
-  *" $REGION "*) : ;;
-  *)
-    echo "Region '$REGION' does not support AI red teaming."
-    echo "Choose one of: $SUPPORTED"
-    echo "Re-run with:  REGION=eastus2 ./part2_setup.sh"
-    exit 1
-    ;;
-esac
-
-command -v az  >/dev/null 2>&1 || { echo "Azure CLI not found: https://aka.ms/installazurecli"; exit 1; }
-command -v azd >/dev/null 2>&1 || { echo "Azure Developer CLI not found: https://aka.ms/azure-dev/install"; exit 1; }
-az account show >/dev/null 2>&1 || { echo "Run 'az login' first."; exit 1; }
-
-PROJECT_DIR="$SCRIPT_DIR/.foundry-project"
-ENV_NAME="vaultbot-redteam"
-
-echo "Provisioning a Foundry project in $REGION."
-echo "This takes 5-10 minutes and creates billable Azure resources."
-mkdir -p "$PROJECT_DIR"
-cd "$PROJECT_DIR"
-
-if [ ! -f "azure.yaml" ]; then
-  # azd stages template files with Git. Initialize outside this repository
-  # because .foundry-project is intentionally ignored by the parent repo.
-  INIT_DIR="$(mktemp -d)"
-  trap 'rm -rf "$INIT_DIR"' EXIT
-  (
-    cd "$INIT_DIR"
-    AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
-      azd init -t Azure-Samples/azd-ai-starter-basic \
-      -e "$ENV_NAME" --no-prompt
-  )
-  cp -a "$INIT_DIR/." "$PROJECT_DIR/"
-  rm -rf "$INIT_DIR"
-  trap - EXIT
-fi
-if [ -d ".azure/$ENV_NAME" ]; then
-  AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
-    azd env select "$ENV_NAME" --no-prompt
-else
-  AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
-    azd env new "$ENV_NAME" \
-    --subscription "$(az account show --query id -o tsv)" \
-    --location "$REGION" --no-prompt
-fi
-AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
-  azd env set AZURE_LOCATION "$REGION" --no-prompt || \
-  AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
-    azd config set defaults.location "$REGION"
-AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd provision --no-prompt
-
-ENDPOINT="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-values | sed -n 's/^AZURE_AI_PROJECT_ENDPOINT=//p' | tr -d '"')"
-if [ -z "$ENDPOINT" ]; then
-  echo "Could not read AZURE_AI_PROJECT_ENDPOINT from azd."
-  echo "Inspect 'azd env get-values' and set AZURE_AI_PROJECT in .env manually."
-  exit 1
-fi
-
-cat > "$ENV_FILE" <<EOF
-AZURE_AI_PROJECT=$ENDPOINT
-VAULTBOT_URL=${VAULTBOT_URL:-http://localhost:3000}
-EOF
-
-echo "Wrote $ENV_FILE"
-echo "Done. Start VaultBot (Part 1), then run ./run.sh"
-echo "Tear down later with:  (cd .foundry-project && azd down)"
+main "$@"

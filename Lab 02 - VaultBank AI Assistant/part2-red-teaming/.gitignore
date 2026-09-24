@@ -2,3 +2,6 @@
 .venv/
 .foundry-project/
 *_scorecard.json
+runs/
+.scan_*/
+__pycache__/

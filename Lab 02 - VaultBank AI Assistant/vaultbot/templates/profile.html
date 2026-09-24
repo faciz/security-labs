@@ -1,102 +1,56 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>VaultBank — Your Profile</title>
-  <style>
-    :root { --vb: #0b5; --bg: #0f1720; --panel: #16212e; --line: #24333f; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: var(--bg); color: #e6edf3; min-height: 100vh; display: flex; flex-direction: column;
-    }
-    header {
-      padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--line);
-      display: flex; align-items: center; gap: 12px;
-    }
-    header .logo { font-weight: 700; font-size: 18px; color: #fff; }
-    header .logo span { color: var(--vb); }
-    header .who { margin-left: auto; font-size: 13px; opacity: .8; }
-    .iconbtn {
-      display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%;
-      background: var(--bg); border: 1px solid var(--line); color: #e6edf3; text-decoration: none;
-      cursor: pointer; flex: 0 0 auto;
-    }
-    .iconbtn:hover { border-color: var(--vb); color: var(--vb); }
-
-    main { width: 100%; max-width: 560px; margin: 32px auto; padding: 0 20px; }
-    .panel {
-      background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-      padding: 22px 24px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
-    }
-    h1 { margin: 0 0 4px; font-size: 20px; }
-    .sub { margin: 0 0 20px; font-size: 13px; opacity: .6; }
-    label { display: block; font-size: 12px; opacity: .75; margin: 14px 0 4px; }
-    input, textarea {
-      width: 100%; background: var(--bg); border: 1px solid var(--line); color: #e6edf3;
-      border-radius: 8px; padding: 9px 11px; font-size: 14px; font-family: inherit;
-    }
-    textarea { resize: vertical; min-height: 90px; }
-    button {
-      margin-top: 18px; background: var(--vb); border: 0; color: #04120b; font-weight: 700;
-      padding: 10px 22px; border-radius: 10px; cursor: pointer; font-size: 14px;
-    }
-    .out { margin-top: 14px; font-size: 12px; opacity: .8; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .hint { text-align: center; font-size: 12px; opacity: .55; padding: 10px; margin-top: auto; }
-  </style>
-</head>
-<body>
-  <header>
-    <a class="iconbtn" href="/" title="Back to chat" aria-label="Back to chat">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
-    </a>
-    <div class="logo">Vault<span>Bank</span> · VaultBot</div>
-    <div class="who">Signed in as <strong>{{ account }}</strong> (Guest tier)</div>
-  </header>
-
-  <main>
-    <div class="panel">
-      <h1>Your profile</h1>
-      <p class="sub">VaultBot personalizes replies using the details below.</p>
-      <label>Display name</label>
-      <input id="pName" value="Guest User" />
-      <label>About you</label>
-      <textarea id="pAbout">Prefers quick answers.</textarea>
-      <button id="pSend" type="button">Save profile</button>
-      <div class="out" id="pOut"></div>
+{% extends "base.html" %}
+{% block title %}Your Profile | VaultBank{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='profile.js') }}" defer></script>{% endblock %}
+{% block content %}
+  <main id="main-content" class="profile-page">
+    <a href="/" class="back-link">{{ icon("arrow-left") }} Back to workspace</a>
+    <div class="profile-heading">
+      <span class="eyebrow">YOUR VAULTBANK</span>
+      <h1>Customer profile</h1>
+    </div>
+    <div class="profile-layout">
+      <aside class="profile-identity" aria-label="Account identity">
+        <div class="large-avatar" id="profile-initials">GU</div>
+        <h2 id="profile-name-preview">Guest User</h2>
+        <span class="mono">{{ account }}</span><span class="profile-tier">Guest customer</span>
+        <dl class="profile-facts">
+          <div>
+            <dt>Account type</dt>
+            <dd>
+              Everyday checking
+            </dd>
+          </div>
+          <div>
+            <dt>Environment</dt>
+            <dd>
+              Training sandbox
+            </dd>
+          </div>
+        </dl>
+      </aside>
+      <section class="profile-editor" aria-labelledby="preferences-heading">
+        <div class="section-heading">
+          <h2 id="preferences-heading">Personal details</h2>
+          <span id="profile-state" class="small-text muted">Loading</span>
+        </div>
+        <form id="profile-form">
+          <label for="display-name">Display name</label><input id="display-name"
+       name="display_name"
+       maxlength="80"
+       autocomplete="off"
+       required
+       disabled>
+          <div class="label-row">
+            <label for="profile-about">About you</label><span id="profile-length"
+      class="small-text muted mono">0 / 4,000</span>
+          </div>
+          <textarea id="profile-about" name="about" rows="9" maxlength="4000" disabled></textarea>
+          <p id="profile-result" class="form-message" role="status" hidden></p>
+          <div class="profile-actions">
+            <button type="button" class="button secondary" id="discard-profile" disabled>{{ icon("undo-2") }} Discard changes</button><button type="submit" class="button primary" id="save-profile" disabled>{{ icon("save") }} Save profile</button>
+          </div>
+        </form>
+      </section>
     </div>
   </main>
-
-  <div class="hint">Lab environment — for authorized security training only.</div>
-
-  <script>
-    const pName = document.getElementById("pName");
-    const pAbout = document.getElementById("pAbout");
-    const pOut = document.getElementById("pOut");
-
-    async function loadProfile() {
-      try {
-        const res = await fetch("/api/profile");
-        const data = await res.json();
-        if (data.profile) {
-          if (data.profile.display_name != null) pName.value = data.profile.display_name;
-          if (data.profile.about != null) pAbout.value = data.profile.about;
-        }
-      } catch (e) { /* keep defaults */ }
-    }
-
-    document.getElementById("pSend").addEventListener("click", async () => {
-      const res = await fetch("/api/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ display_name: pName.value, about: pAbout.value }),
-      });
-      const data = await res.json();
-      pOut.textContent = "Saved: " + JSON.stringify(data.profile);
-    });
-
-    loadProfile();
-  </script>
-</body>
-</html>
+{% endblock %}
