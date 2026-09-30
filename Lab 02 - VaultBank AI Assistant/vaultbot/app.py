@@ -33,7 +33,14 @@ from flask import (
     request,
     stream_with_context,
 )
-from openai import AzureOpenAI, BadRequestError, RateLimitError
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AzureOpenAI,
+    BadRequestError,
+    RateLimitError,
+)
 from setup_lab import build_system_prompt, get_administrator
 from werkzeug.exceptions import BadRequest, HTTPException
 
@@ -505,6 +512,36 @@ def api_http_error(error):
     return error
 
 
+class ModelResponseFilteredError(Exception):
+    """The model service withheld a completion through content filtering."""
+
+
+def model_failure_details(error: Exception) -> dict:
+    """Expose correlation metadata, never upstream messages or payloads."""
+    details = {"error_id": uuid4().hex, "category": "unexpected_error"}
+    if isinstance(error, APITimeoutError):
+        details["category"] = "upstream_timeout"
+    elif isinstance(error, APIConnectionError):
+        details["category"] = "upstream_connection"
+    elif isinstance(error, APIStatusError):
+        details["category"] = {
+            400: "upstream_bad_request",
+            401: "upstream_authentication",
+            403: "upstream_permission",
+            404: "upstream_not_found",
+            429: "upstream_rate_limit",
+        }.get(error.status_code, "upstream_http_error")
+        details["upstream_status"] = error.status_code
+        request_id = error.request_id or error.response.headers.get(
+            "apim-request-id"
+        )
+        if isinstance(request_id, str) and re.fullmatch(
+            r"(?:req_)?[a-fA-F0-9-]{16,64}", request_id
+        ):
+            details["upstream_request_id"] = request_id
+    return details
+
+
 def _create_completion(messages):
     """Call the chat API, tolerating model-specific parameter constraints.
 
@@ -562,7 +599,10 @@ def chat_once(history, trace=None):
 
     for _ in range(5):  # allow a small chain of tool calls
         response = _create_completion(messages)
-        message = response.choices[0].message
+        choice = response.choices[0]
+        if getattr(choice, "finish_reason", None) == "content_filter":
+            raise ModelResponseFilteredError()
+        message = choice.message
 
         if not message.tool_calls:
             return apply_output_filter(message.content or "")
@@ -811,10 +851,13 @@ def api_chat():
             reply = chat_once(clean_history, trace)
         except Exception as exc:
             detail = str(exc).lower()
-            if isinstance(exc, BadRequestError) and (
-                "content_filter" in detail
-                or "jailbreak" in detail
-                or "responsibleaipolicyviolation" in detail
+            if isinstance(exc, ModelResponseFilteredError) or (
+                isinstance(exc, BadRequestError)
+                and (
+                    "content_filter" in detail
+                    or "jailbreak" in detail
+                    or "responsibleaipolicyviolation" in detail
+                )
             ):
                 LAB["blocked"] += 1
                 record_event(
@@ -833,9 +876,13 @@ def api_chat():
                         "trace": trace,
                     }
                 )
-            app.logger.warning("Model request failed: %s", type(exc).__name__)
+            diagnostics = model_failure_details(exc)
+            app.logger.warning(
+                "Model request failed: %s", json.dumps(diagnostics)
+            )
             record_event(
-                "The model request failed; no safety verdict was recorded",
+                f"Model request failed ({diagnostics['category']}); "
+                f"reference {diagnostics['error_id']}",
                 kind="error",
                 source="Azure",
             )
@@ -849,7 +896,12 @@ def api_chat():
                 )
             )
             return jsonify(
-                {"error": error, "status": "error", "trace": trace}
+                {
+                    "error": error,
+                    "status": "error",
+                    "trace": trace,
+                    "diagnostics": diagnostics,
+                }
             ), status
         supplied_text = " ".join(
             message["content"] for message in clean_history

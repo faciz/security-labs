@@ -1,12 +1,327 @@
-"""Test evaluation plumbing without importing or calling the cloud scanner."""
+"""Test evaluation plumbing without calling a model or cloud scanner."""
 
 import asyncio
 import json
+from hashlib import sha256
+from pathlib import Path
 
 import httpx
 import pytest
 import redteam_vaultbot as redteam
 from dotenv import dotenv_values
+
+
+def evaluation_fixture(counts, filtered=0):
+    records = []
+    for category, total in counts.items():
+        for _ in range(total):
+            records.append(
+                {
+                    "risk_category": category,
+                    "attack_success": False,
+                    "risk_assessment": {
+                        category: {"severity_label": "Very low"}
+                    },
+                    "conversation": [
+                        {
+                            "role": "assistant",
+                            "content": (
+                                redteam.FILTER_NOTICE
+                                if len(records) < filtered
+                                else "A synthetic model response"
+                            ),
+                        }
+                    ],
+                }
+            )
+    totals = {f"{category}_total": total for category, total in counts.items()}
+    return {
+        "scorecard": {
+            "risk_category_summary": [
+                {
+                    **totals,
+                    "overall_total": len(records),
+                    "overall_asr": 0,
+                    "overall_successful_attacks": 0,
+                }
+            ]
+        },
+        "attack_details": records,
+    }
+
+
+def test_given_missing_case_when_assessed_then_run_is_partial():
+    plan = dict.fromkeys(redteam.RISK_CATEGORIES, 2)
+    counts = {**plan, "sexual": 1}
+
+    health = redteam.assess_run(evaluation_fixture(counts, filtered=4), plan)
+
+    assert health["status"] == "partial"
+    assert (health["planned"], health["scored"], health["unscored"]) == (
+        8,
+        7,
+        1,
+    )
+    assert health["response_sources"] == {
+        "service_filter": 4,
+        "model_response": 0,
+        "unknown": 3,
+    }
+    assert health["model_only_asr"] is None
+    assert "8 planned, 7 scored, 1 unscored" in redteam.summarize_health(
+        health
+    )
+
+
+def test_given_full_coverage_when_assessed_then_run_is_complete():
+    plan = dict.fromkeys(redteam.RISK_CATEGORIES, 1)
+
+    health = redteam.assess_run(evaluation_fixture(plan), plan)
+
+    assert health["status"] == "complete"
+    assert health["unscored"] == 0
+
+
+def test_given_unscored_record_when_assessed_then_it_is_not_counted():
+    plan = dict.fromkeys(redteam.RISK_CATEGORIES, 1)
+    data = evaluation_fixture(plan)
+    data["attack_details"][0]["risk_assessment"] = None
+
+    health = redteam.assess_run(data, plan)
+
+    assert health["status"] == "partial"
+    assert health["scored"] == 3
+    assert health["unscored"] == 1
+
+
+def test_given_legacy_run_without_plan_when_assessed_then_unverified():
+    data = evaluation_fixture(dict.fromkeys(redteam.RISK_CATEGORIES, 1))
+
+    health = redteam.assess_run(data)
+
+    assert health["status"] == "unverified"
+    assert health["planned"] is None
+    assert "planned count unavailable" in redteam.summarize_health(health)
+
+
+def test_given_mismatched_counts_when_assessed_then_summary_is_not_trusted():
+    plan = dict.fromkeys(redteam.RISK_CATEGORIES, 2)
+    data = evaluation_fixture({**plan, "sexual": 1})
+    data["scorecard"]["risk_category_summary"][0]["overall_total"] = 8
+
+    health = redteam.assess_run(data, plan)
+
+    assert health["status"] == "partial"
+    assert health["scored"] == 7
+    assert health["issues"]
+
+
+def test_given_api_provenance_when_assessed_then_filtering_is_separate():
+    plan = dict.fromkeys(redteam.RISK_CATEGORIES, 1)
+    data = evaluation_fixture(plan, filtered=2)
+    data["attack_details"][-1]["attack_success"] = True
+    outcomes = [
+        {
+            "outcome": "service_filter",
+            "response_hash": sha256(
+                redteam.FILTER_NOTICE.encode()
+            ).hexdigest(),
+        },
+        {
+            "outcome": "model_response",
+            "response_hash": sha256(b"A synthetic model response").hexdigest(),
+        },
+    ]
+
+    health = redteam.assess_run(data, plan, outcomes)
+
+    assert health["response_sources"] == {
+        "service_filter": 2,
+        "model_response": 2,
+        "unknown": 0,
+    }
+    assert health["model_only_asr"] == 50.0
+    assert health["source_evidence"] == "API response status"
+
+
+@pytest.mark.parametrize("status", ["ok", "filtered"])
+def test_given_response_status_when_called_then_provenance_is_recorded(
+    mocker, status
+):
+    client = mocker.AsyncMock()
+    client.post.return_value = httpx.Response(
+        200,
+        request=httpx.Request("POST", "http://localhost/api/chat"),
+        json={"status": status, "reply": "Synthetic response"},
+    )
+    context = mocker.patch.object(redteam.httpx, "AsyncClient")
+    context.return_value.__aenter__.return_value = client
+    outcomes = []
+    token = redteam.RUN_OUTCOMES.set(outcomes)
+    try:
+        asyncio.run(redteam.vaultbot_callback("Synthetic query"))
+    finally:
+        redteam.RUN_OUTCOMES.reset(token)
+
+    assert outcomes == [
+        {
+            "outcome": "model_response"
+            if status == "ok"
+            else "service_filter",
+            "http_status": 200,
+            "response_hash": sha256(b"Synthetic response").hexdigest(),
+        }
+    ]
+    assert "Synthetic query" not in json.dumps(outcomes)
+    assert "Synthetic response" not in json.dumps(outcomes)
+
+
+def test_given_http_failure_when_recorded_then_only_safe_metadata_is_kept(
+    mocker,
+):
+    client = mocker.AsyncMock()
+    client.post.return_value = httpx.Response(
+        502,
+        request=httpx.Request("POST", "http://localhost/api/chat"),
+        json={
+            "error": "PRIVATE PAYLOAD",
+            "diagnostics": {
+                "category": "upstream_timeout",
+                "error_id": "a" * 32,
+                "upstream_request_id": "person@example.test",
+                "prompt": "PRIVATE PAYLOAD",
+                "token": "PRIVATE TOKEN",
+            },
+        },
+    )
+    context = mocker.patch.object(redteam.httpx, "AsyncClient")
+    context.return_value.__aenter__.return_value = client
+    outcomes = []
+    token = redteam.RUN_OUTCOMES.set(outcomes)
+    try:
+        with pytest.raises(httpx.HTTPStatusError):
+            asyncio.run(redteam.vaultbot_callback("PRIVATE QUERY"))
+    finally:
+        redteam.RUN_OUTCOMES.reset(token)
+
+    assert outcomes == [
+        {
+            "outcome": "error",
+            "http_status": 502,
+            "category": "upstream_timeout",
+            "error_id": "a" * 32,
+        }
+    ]
+
+
+def test_given_partial_saved_run_when_summarized_then_exit_is_nonzero(
+    tmp_path, capsys, mocker
+):
+    plan = dict.fromkeys(redteam.RISK_CATEGORIES, 2)
+    data = evaluation_fixture({**plan, "sexual": 1}, filtered=4)
+    (tmp_path / "evaluation_results.json").write_text(json.dumps(data))
+    preflight = mocker.patch.object(redteam, "preflight")
+
+    result = redteam.main(
+        ["--summary", str(tmp_path), "--expected-per-category", "2"]
+    )
+
+    assert result == 2
+    assert "PARTIAL" in capsys.readouterr().out
+    preflight.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "missing,execution_error", [(0, False), (1, False), (8, True)]
+)
+def test_given_sdk_completion_when_running_then_health_controls_exit(
+    tmp_path, monkeypatch, mocker, capsys, missing, execution_error
+):
+    sdk = pytest.importorskip("azure.ai.evaluation.red_team")
+    mocker.patch("azure.identity.DefaultAzureCredential")
+    mocker.patch.object(redteam, "preflight")
+    monkeypatch.setenv(
+        "AZURE_AI_PROJECT", "https://example.test/api/projects/training"
+    )
+    plan = dict.fromkeys(redteam.RISK_CATEGORIES, 2)
+    counts = {**plan, "sexual": 2 - missing} if missing < 2 else {}
+    report = evaluation_fixture(counts, filtered=4)
+    output = tmp_path / "new-run"
+
+    async def sdk_scan(**kwargs):
+        assert kwargs["target"] is redteam.vaultbot_target
+        assert kwargs["parallel_execution"] is False
+        assert kwargs["max_parallel_tasks"] == 1
+        destination = Path(kwargs["output_path"])
+        destination.mkdir()
+        outcomes = redteam.RUN_OUTCOMES.get()
+        assert outcomes is not None
+        for record in report["attack_details"]:
+            reply = record["conversation"][0]["content"]
+            outcomes.append(
+                {
+                    "outcome": (
+                        "service_filter"
+                        if reply == redteam.FILTER_NOTICE
+                        else "model_response"
+                    ),
+                    "response_hash": sha256(reply.encode()).hexdigest(),
+                }
+            )
+        if missing:
+            outcomes.append(
+                {
+                    "outcome": "error",
+                    "http_status": 502,
+                    "category": "upstream_timeout",
+                    "error_id": "a" * 32,
+                }
+            )
+        if execution_error:
+            raise RuntimeError("PRIVATE SDK ERROR")
+        (destination / "evaluation_results.json").write_text(
+            json.dumps(report)
+        )
+
+    scan = mocker.AsyncMock(side_effect=sdk_scan)
+    mocker.patch.object(sdk, "RedTeam").return_value.scan = scan
+
+    result = redteam.main(
+        ["--yes", "--num-objectives", "2", "--output", str(output)]
+    )
+
+    assert result == (2 if missing else 0)
+    metadata = json.loads((output / redteam.RUN_HEALTH_FILE).read_text())
+    assert metadata["status"] == ("partial" if missing else "complete")
+    assert metadata["planned"] == 8
+    assert metadata["scored"] == 8 - missing
+    assert metadata["unscored"] == missing
+    assert metadata["execution_failed"] is execution_error
+    assert len(metadata["target_failures"]) == bool(missing)
+    if not execution_error:
+        assert metadata["response_sources"]["service_filter"] == 4
+        assert metadata["response_sources"]["model_response"] == 4 - missing
+        original = (output / "evaluation_results.json").read_bytes()
+        assert redteam.main(["--summary", str(output)]) == result
+        assert (output / "evaluation_results.json").read_bytes() == original
+    captured = capsys.readouterr()
+    assert "PRIVATE SDK ERROR" not in captured.out + captured.err
+    assert redteam.RUN_OUTCOMES.get() is None
+
+
+def test_given_legacy_summary_without_plan_when_read_then_exit_is_unverified(
+    tmp_path, capsys
+):
+    report = evaluation_fixture(dict.fromkeys(redteam.RISK_CATEGORIES, 1))
+    (tmp_path / "evaluation_results.json").write_text(json.dumps(report))
+
+    result = redteam.main(["--summary", str(tmp_path)])
+
+    assert result == 2
+    output = capsys.readouterr().out
+    assert "UNVERIFIED" in output
+    assert "Failed target requests: unavailable" in output
+    assert not (tmp_path / redteam.RUN_HEALTH_FILE).exists()
 
 
 @pytest.mark.parametrize(
@@ -129,6 +444,55 @@ def test_given_real_filtered_reply_when_scanned_then_reply_is_evaluable(
         f"{expected}/api/chat",
         json={"history": [{"role": "user", "content": query}]},
     )
+
+
+def test_given_sdk_messages_when_targeted_then_reply_is_awaited(mocker):
+    callback = mocker.patch.object(
+        redteam, "vaultbot_callback", return_value="A synthetic response"
+    )
+
+    result = asyncio.run(
+        redteam.vaultbot_target(
+            messages=[{"role": "user", "content": "A synthetic query"}],
+            stream=False,
+            session_state=None,
+            context={},
+        )
+    )
+
+    callback.assert_awaited_once_with("A synthetic query")
+    assert result == {
+        "messages": [{"role": "assistant", "content": "A synthetic response"}]
+    }
+
+
+def test_given_target_error_when_adapted_then_not_converted_to_reply(mocker):
+    mocker.patch.object(
+        redteam,
+        "vaultbot_callback",
+        side_effect=httpx.ConnectError("Connection failed"),
+    )
+
+    with pytest.raises(httpx.ConnectError, match="Connection failed"):
+        asyncio.run(
+            redteam.vaultbot_target(
+                messages=[{"role": "user", "content": "A synthetic query"}]
+            )
+        )
+
+
+def test_given_sdk_when_target_registered_then_native_callback_is_used(mocker):
+    strategies = pytest.importorskip(
+        "azure.ai.evaluation.red_team._utils.strategy_utils"
+    )
+    target = mocker.patch.object(
+        strategies, "_CallbackChatTarget", return_value=mocker.sentinel.target
+    )
+
+    result = strategies.get_chat_target(redteam.vaultbot_target)
+
+    assert result is mocker.sentinel.target
+    target.assert_called_once_with(callback=redteam.vaultbot_target)
 
 
 @pytest.mark.parametrize("container", ["scorecard", "redteaming_scorecard"])

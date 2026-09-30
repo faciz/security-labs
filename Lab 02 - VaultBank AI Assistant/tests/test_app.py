@@ -5,6 +5,7 @@ import runpy
 from copy import deepcopy
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 
@@ -278,6 +279,134 @@ def test_given_no_model_when_chatting_then_error_not_fake_reply(
 
     assert response.status_code == 503
     assert "reply" not in response.json
+
+
+@pytest.mark.parametrize(
+    "kind,upstream_status,category,http_status",
+    [
+        ("timeout", None, "upstream_timeout", 502),
+        ("connection", None, "upstream_connection", 502),
+        ("http", 400, "upstream_bad_request", 502),
+        ("http", 401, "upstream_authentication", 502),
+        ("http", 403, "upstream_permission", 502),
+        ("http", 404, "upstream_not_found", 502),
+        ("rate", 429, "upstream_rate_limit", 429),
+        ("http", 503, "upstream_http_error", 502),
+        ("unexpected", None, "unexpected_error", 502),
+    ],
+)
+def test_given_model_failure_when_chatting_then_diagnostics_are_sanitized(
+    vaultbot, mocker, caplog, kind, upstream_status, category, http_status
+):
+    private = "PRIVATE-UPSTREAM-PAYLOAD"
+    upstream_request = httpx.Request(
+        "POST", f"https://example.invalid/?token={private}"
+    )
+    request_id = "req_" + "a" * 32
+    if kind == "timeout":
+        error = vaultbot.APITimeoutError(request=upstream_request)
+    elif kind == "connection":
+        error = vaultbot.APIConnectionError(
+            message=private, request=upstream_request
+        )
+    elif upstream_status:
+        error_type = (
+            vaultbot.RateLimitError
+            if kind == "rate"
+            else vaultbot.APIStatusError
+        )
+        error = error_type(
+            private,
+            response=httpx.Response(
+                upstream_status,
+                request=upstream_request,
+                headers={"x-request-id": request_id},
+            ),
+            body={"message": private},
+        )
+    else:
+        error = RuntimeError(private)
+    mocker.patch.object(vaultbot, "chat_once", side_effect=error)
+
+    response = vaultbot.app.test_client().post(
+        "/api/chat",
+        json={"history": [{"role": "user", "content": "Hello"}]},
+    )
+
+    assert response.status_code == http_status
+    diagnostics = response.json["diagnostics"]
+    assert diagnostics["category"] == category
+    assert len(diagnostics["error_id"]) == 32
+    assert diagnostics["error_id"] in caplog.text
+    assert diagnostics.get("upstream_status") == upstream_status
+    if upstream_status:
+        assert diagnostics["upstream_request_id"] == request_id
+    assert private not in response.get_data(as_text=True) + caplog.text
+    assert "example.invalid" not in caplog.text
+    assert not any(vaultbot.CAPTURED.values())
+
+
+@pytest.mark.parametrize("filter_location", ["prompt", "completion"])
+def test_given_service_filter_when_chatting_then_block_is_not_a_model_reply(
+    vaultbot, mocker, filter_location
+):
+    if filter_location == "prompt":
+        error = vaultbot.BadRequestError(
+            "content_filter: PRIVATE FILTER DETAIL",
+            response=httpx.Response(
+                400, request=httpx.Request("POST", "https://example.invalid/")
+            ),
+            body={"code": "content_filter"},
+        )
+        model = mocker.patch.object(
+            vaultbot, "_create_completion", side_effect=error
+        )
+    else:
+        model = mocker.patch.object(
+            vaultbot,
+            "_create_completion",
+            return_value=SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        finish_reason="content_filter",
+                        message=SimpleNamespace(
+                            content="PRIVATE FILTER DETAIL", tool_calls=None
+                        ),
+                    )
+                ]
+            ),
+        )
+
+    response = vaultbot.app.test_client().post(
+        "/api/chat",
+        json={"history": [{"role": "user", "content": "Synthetic query"}]},
+    )
+
+    assert response.status_code == 200
+    assert response.json["status"] == "filtered"
+    assert "safety filter blocked" in response.json["reply"]
+    assert "PRIVATE FILTER DETAIL" not in response.get_data(as_text=True)
+    assert vaultbot.LAB["blocked"] == 1
+    assert not any(vaultbot.CAPTURED.values())
+    model.assert_called_once()
+
+
+def test_given_untrusted_request_id_when_failed_then_identifier_is_omitted(
+    vaultbot,
+):
+    error = vaultbot.APIStatusError(
+        "Do not disclose",
+        response=httpx.Response(
+            500,
+            request=httpx.Request("POST", "https://example.invalid/"),
+            headers={"x-request-id": "person@example.test?token=private"},
+        ),
+        body=None,
+    )
+
+    diagnostics = vaultbot.model_failure_details(error)
+
+    assert "upstream_request_id" not in diagnostics
 
 
 def test_given_progress_when_read_then_no_secrets_are_exposed(vaultbot):

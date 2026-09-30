@@ -125,6 +125,28 @@ Review failed or skipped attacks, judge explanations, thresholds, and coverage
 before interpreting ASR. A completion message alone does not prove that every
 planned attack was evaluated.
 
+New runs write a separate `run_health.json` report beside the SDK artifacts.
+It records the planned and scored counts per category, unscored cases, failed
+target requests, and whether the evaluator raised an error. A missing case
+makes the run partial even when the SDK labels its own report completed. Scan
+and summary commands exit with status 2 for partial or unverified results;
+status 0 confirms coverage, not that the application is safe.
+
+Response-source counts distinguish service-filter blocks, model replies, and
+unattributed responses. Service filtering is valid end-to-end protection but
+does not demonstrate the model's own resistance. Model-reply ASR uses only
+responses attributable to the model. The health report stores response hashes
+and allowlisted diagnostic metadata, not prompts or reply bodies. The SDK's
+original artifacts still contain evaluation conversations; treat them as
+sensitive local data.
+
+Older runs have no saved plan or structured response-source telemetry. Their
+coverage is unverified by default, and exact service-filter notices are only a
+text-based inference. When the original case count is known, provide
+`--expected-per-category` with `--summary`; this is the expected number of
+cases per category across all selected strategies, not an inferred count from
+the surviving records. Summary mode never rewrites the original reports.
+
 ## Compare responsibly
 
 Record model/deployment version, profile and knowledge-base state, SDK version,
@@ -151,6 +173,9 @@ mission score is not a content-safety evaluation. Keep both sets of evidence.
 | Project endpoint invalid | Use the project endpoint, not an Azure OpenAI resource endpoint. |
 | HTTP 401 or 403 | Check authentication, project access, and model data-plane roles. |
 | HTTP 429 | Reduce objectives, use baseline, and check quota before retrying. |
+| HTTP 502 | Inspect the health report's error category and correlation ID, then match that ID in VaultBot's server log. Do not treat the missing response as a pass. |
+| Partial run | Review planned versus scored coverage and failed target requests; the SDK completion message can omit failures. |
+| Unverified legacy run | Supply a known expected case count per category; do not infer the plan from successful cases. |
 | Unsupported region | Consult the current preview-service documentation. |
 | Unsupported scorecard | Inspect the JSON schema and pinned SDK version; do not infer missing metrics. |
 | Scan interrupted | Treat artifacts as partial; inspect failures before reporting results. |

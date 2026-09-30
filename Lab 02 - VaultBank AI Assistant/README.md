@@ -154,7 +154,7 @@ preserved; no data regeneration or Azure provisioning is needed for this update.
 | Symptom | Check |
 | --- | --- |
 | API-only mode | Configure the Azure endpoint and deployment, then restart. Check `VAULTBOT_OFFLINE` is not enabled. |
-| Model request fails | Check deployment name, API version, network access, and Entra role assignment. New RBAC assignments may take several minutes. |
+| Model request fails | Match the response's diagnostic ID to the server log. The safe error category distinguishes timeout, connection, authentication, permission, rate limit, and other upstream HTTP failures. |
 | Rate limited | Allow quota to recover; use fewer requests or a smaller scan. |
 | Safety filter blocks a request | This is a model-service result, not an application error or proof of tool authorization. Record it separately. |
 | Transfer declined | Amount must be positive, have at most two decimals, fit the source balance, use different accounts, and include a valid source PIN. |
@@ -168,6 +168,13 @@ Azure keys or authentication details in health or lab-progress responses.
 
 Verbose diagnostics return a readable text report in the default `text`
 format. Basic diagnostics and encoded responses remain JSON.
+
+Part 2 records evaluation coverage and response sources separately from the
+SDK scorecard. Missing cases produce a partial result and a nonzero exit code.
+Service-filter blocks remain valid end-to-end protection, but are not labeled
+as the model's own resistance. New model-error diagnostics contain correlation
+metadata only, never raw service errors, prompts, or credentials. No automatic
+request retries were added; repeated requests can affect the shared lab state.
 
 ## Development checks
 
